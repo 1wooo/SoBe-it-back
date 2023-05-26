@@ -20,6 +20,8 @@ import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Map;
+import java.util.Random;
 
 @Slf4j
 @RestController
@@ -31,6 +33,8 @@ public class UserController {
     private final SmsService smsService;
 
     private final TokenProvider tokenProvider;
+
+    private final Map<String, String> smsMap;
 
     private PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -188,15 +192,29 @@ public class UserController {
     @PostMapping("/findpassword")
     public ResponseEntity<?> findUserPassword(@RequestBody FindPasswordDTO findPasswordDTO) throws UnsupportedEncodingException, URISyntaxException, NoSuchAlgorithmException, InvalidKeyException, JsonProcessingException {
         MessageDTO messageDTO = new MessageDTO();
-        Users findUser = userService.findUserId(findPasswordDTO.getUserName(), findPasswordDTO.getPhoneNumber());
+        String phoneNumber = findPasswordDTO.getPhoneNumber();
+        String userName = findPasswordDTO.getUserName();
+
+        Users findUser = userService.findUserId(userName, phoneNumber);
+
 
         if (findUser != null) {
-            String userPassword = findUser.getPassword();
-            String userName = findUser.getUserName();
-            messageDTO.setTo(findPasswordDTO.getPhoneNumber());
-            messageDTO.setContent("Sobe-it ["+ userName + "] 님의 비밀번호는 [" + userPassword + "] 입니다.");
+            messageDTO = new MessageDTO();
+            Random rand = new Random();
+            String numStr = "";
+            for (int i = 0; i < 6; i++) {
+                String ran = Integer.toString(rand.nextInt(10));
+                numStr += ran;
+            }
+
+            messageDTO.setContent("Sobe-it 인증번호는 [" + numStr + "] 입니다.");
+            messageDTO.setTo(phoneNumber);
             smsService.sendSms(messageDTO);
-            return ResponseEntity.ok().body("비밀번호가 입력하신 핸드폰 번호로 전송되었습니다.");
+
+            smsMap.put(phoneNumber,numStr);
+            System.out.println(smsMap);
+
+            return ResponseEntity.ok().build();
         }
         else{
             ResponseDTO responseDTO = ResponseDTO.builder()
@@ -207,5 +225,18 @@ public class UserController {
                     .internalServerError()
                     .body(responseDTO);
         }
+    }
+
+    @PostMapping("/updatePassword")
+    public ResponseEntity<?> updatePassword(@RequestBody UpdatePasswordRequestDTO requestDTO) {
+        String userName = requestDTO.getUserName();
+        String phoneNumber = requestDTO.getPhoneNumber();
+        String newPassword = requestDTO.getNewPassword();
+
+        Users findUser = userService.findUserId(userName, phoneNumber);
+
+//        if (findUser != null) {
+//        }
+        return ResponseEntity.ok().build();
     }
 }
